@@ -1,0 +1,142 @@
+{
+  "scale": 3,
+  "fps": 12,
+  "motionFps": 60,
+  "speed": {
+    "walk": 40,
+    "run": 130
+  },
+  "physics": {
+    "gravity": 2400,
+    "hopVelocity": 520,
+    "bounce": 0.45,
+    "bounceMinSpeed": 400,
+    "groundFriction": 5,
+    "airDrag": 0.4,
+    "maxFlingSpeed": 3000
+  },
+  "hitboxPadding": 0,
+  "sprite": {
+    "path": "assets/pet.png",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "facing": "right",
+    "baselineOffset": 0,
+    "hatAnchor": { "x": 22, "y": 8 },
+    "animations": {
+      "idle":        { "row": 0,  "frames": 4, "fps": 6 },
+      "walk":        { "row": 1,  "frames": 6, "fps": 10 },
+      "run":         { "row": 2,  "frames": 6, "fps": 12, "hatAnchor": { "x": 22, "y": 7 } },
+      "sit":         { "row": 3,  "frames": 4, "fps": 4,  "hatAnchor": { "x": 19, "y": 8 } },
+      "sleep":       { "row": 4,  "frames": 2, "fps": 2,  "hatAnchor": { "x": 23, "y": 21 } },
+      "excited":     { "row": 5,  "frames": 4, "fps": 12, "hatAnchor": { "x": 22, "y": 6 } },
+      "dragged":     { "row": 6,  "frames": 4, "fps": 8,  "hatAnchor": { "x": 22, "y": 5 } },
+      "fall":        { "row": 7,  "frames": 2, "fps": 8,  "hatAnchor": { "x": 22, "y": 6 } },
+      "trick_spin":  { "row": 8,  "frames": 6, "fps": 12 },
+      "trick_flip":  { "row": 9,  "frames": 6, "fps": 12 },
+      "trick_dance": { "row": 10, "frames": 6, "fps": 10 },
+      "eat":         { "row": 11, "frames": 4, "fps": 8,  "hatAnchor": { "x": 23, "y": 13 } },
+      "sad":         { "row": 12, "frames": 4, "fps": 3,  "hatAnchor": { "x": 19, "y": 10 } }
+    }
+  },
+  "tricks": [
+    { "animation": "trick_spin",  "motion": "spin",     "durationMs": 1000 },
+    { "animation": "trick_flip",  "motion": "backflip", "durationMs": 800, "height": 70 },
+    { "animation": "trick_dance", "motion": "wiggle",   "durationMs": 1500 }
+  ],
+  "behavior": {
+    "durationMs": {
+      "idle":    [2000, 6000],
+      "walk":    [3000, 9000],
+      "run":     [1500, 4000],
+      "sit":     [5000, 12000],
+      "excited": [1500, 3500]
+    },
+    "transitions": {
+      "idle":    { "idle": 2, "walk": 5, "run": 1, "sit": 2 },
+      "walk":    { "idle": 4, "walk": 2, "run": 1, "sit": 1 },
+      "run":     { "walk": 3, "idle": 2 },
+      "sit":     { "idle": 3, "walk": 2, "sit": 1 },
+      "excited": { "idle": 3, "walk": 2, "run": 1 }
+    },
+    "typingTransitions": { "excited": 4, "run": 3 }
+  },
+  "typing": {
+    "highRate": 35,
+    "sitAfterSec": 120,
+    "sleepAfterSec": 300
+  },
+  "cursorPlay": {
+    "enabled": true,
+    "noticeDistance": 320,
+    "chance": 0.15,
+    "cooldownSec": 25,
+    "maxChaseSec": 6,
+    "pounceDistance": 110,
+    "maxPounceHeight": 240
+  },
+  "climbing": {
+    "windows": true,
+    "walls": true,
+    "jumpChance": 0.3,
+    "maxJumpHeight": 320,
+    "dropChance": 0.5,
+    "wallChance": 0.25
+  },
+  "displays": {
+    "all": true
+  },
+  "friends": {
+    "playChance": 0.15
+  },
+  "seasons": {
+    "enabled": true,
+    "override": null
+  },
+  "smart": {
+    "hideFullscreen": true,
+    "night": true,
+    "nightStart": "23:00",
+    "nightEnd": "06:00"
+  },
+  "dnd": {
+    "enabled": false,
+    "start": "22:00",
+    "end": "08:00"
+  },
+  "hotkeys": {
+    "summon": "CommandOrControl+Alt+P",
+    "toggleHide": "CommandOrControl+Alt+H"
+  },
+  "xp": {
+    "keysPerXp": 50,
+    "feedXp": 8,
+    "focusXp": 20
+  },
+  "speech": {
+    "enabled": true,
+    "chatter": true,
+    "durationMs": 3500
+  },
+  "reminders": {
+    "breakEnabled": true,
+    "breakEveryMin": 60,
+    "waterEnabled": true,
+    "waterEveryMin": 90
+  },
+  "pomodoro": {
+    "focusMin": 25,
+    "shortBreakMin": 5,
+    "longBreakMin": 15,
+    "longBreakEvery": 4
+  },
+  "needs": {
+    "hungerPerHour": 10,
+    "happinessPerHour": 6,
+    "feedAmount": 35
+  },
+  "sound": {
+    "enabled": true,
+    "volume": 0.5
+  }
+}

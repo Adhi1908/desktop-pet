@@ -1,0 +1,61 @@
+{
+  "name": "desktop-pet",
+  "productName": "Desktop Pet",
+  "version": "1.0.0",
+  "description": "A small pet that lives on top of your taskbar and reacts to your typing.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "sprites": "node scripts/generate-placeholder-sprites.js",
+    "prestart": "node scripts/generate-placeholder-sprites.js --quiet",
+    "start": "electron .",
+    "prebuild": "node scripts/generate-placeholder-sprites.js --quiet",
+    "build": "electron-builder --win"
+  },
+  "dependencies": {
+    "koffi": "2.16.3",
+    "uiohook-napi": "^1.5.5"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.desktoppet.app",
+    "productName": "Desktop Pet",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "settings-preload.js",
+      "lib/**/*",
+      "config.json",
+      "renderer/**/*",
+      "assets/**/*",
+      "!node_modules/koffi/build/koffi/!(win32_x64)/**",
+      "!node_modules/koffi/{doc,src,vendor}/**"
+    ],
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**",
+      "node_modules/koffi/**"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  }
+}

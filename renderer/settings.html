@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'" />
+    <title>Desktop Pet</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" id="tab-btn-pets" aria-controls="tab-pets" aria-selected="true">Pets</button>
+      <button type="button" role="tab" id="tab-btn-home" aria-controls="tab-home" aria-selected="false">Shop &amp; quests</button>
+      <button type="button" role="tab" id="tab-btn-reminders" aria-controls="tab-reminders" aria-selected="false">Reminders</button>
+      <button type="button" role="tab" id="tab-btn-stats" aria-controls="tab-stats" aria-selected="false">Stats</button>
+      <button type="button" role="tab" id="tab-btn-settings" aria-controls="tab-settings" aria-selected="false">Settings</button>
+    </nav>
+
+    <section id="tab-pets" class="tab" role="tabpanel" aria-labelledby="tab-btn-pets">
+      <p id="season-note" class="season-note" hidden></p>
+      <div id="pet-cards"></div>
+      <div class="bottom-actions">
+        <button type="button" id="add-pet">Add a friend</button>
+        <button type="button" class="secondary" data-action="play">Play ball</button>
+      </div>
+    </section>
+
+    <section id="tab-home" class="tab" role="tabpanel" aria-labelledby="tab-btn-home" hidden>
+      <div class="card treats-card">
+        <span class="treat-count" id="treat-count"></span>
+        <p class="muted">
+          Earn treats from today's quests (and 2 more each new day). Spend them on furniture here, or give one as a
+          snack from the tray's Toys menu.
+        </p>
+      </div>
+      <div class="card">
+        <h2>Today's quests</h2>
+        <div id="quests" class="quests"></div>
+      </div>
+      <div class="card">
+        <h2>Furniture</h2>
+        <div id="shop" class="shop"></div>
+        <p class="muted small">Drag furniture around on screen (onto windows too). Right-click it to put it away.</p>
+      </div>
+    </section>
+
+    <section id="tab-reminders" class="tab" role="tabpanel" aria-labelledby="tab-btn-reminders" hidden>
+      <div class="card">
+        <h2 id="reminder-form-title">New reminder</h2>
+        <form id="reminder-form" class="reminder-form">
+          <input id="r-text" maxlength="80" placeholder="What should your pet remind you about?" aria-label="Reminder text" />
+          <div class="reminder-when">
+            <input type="time" id="r-time" aria-label="Time" />
+            <select id="r-repeat" aria-label="Repeat">
+              <option value="once">Once</option>
+              <option value="daily">Every day</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="weekends">Weekends</option>
+              <option value="days">On these days…</option>
+            </select>
+            <input type="date" id="r-date" aria-label="Date" />
+          </div>
+          <div id="r-days" class="days" hidden></div>
+          <p id="r-error" class="error" hidden></p>
+          <div class="form-actions">
+            <button type="submit" id="r-save">Add reminder</button>
+            <button type="button" id="r-cancel" class="secondary" hidden>Cancel</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Your reminders</h2>
+        <div id="reminder-list" class="reminder-list"></div>
+        <p class="muted small">
+          A pet brings each reminder on a sign: click Done, or Snooze for 10 minutes. If the pets are hidden or paused,
+          Windows shows a notification instead.
+        </p>
+      </div>
+    </section>
+
+    <section id="tab-stats" class="tab" role="tabpanel" aria-labelledby="tab-btn-stats" hidden>
+      <div id="tiles" class="tiles"></div>
+      <div class="card">
+        <h2>Keys typed, last 7 days</h2>
+        <div id="chart" class="chart"></div>
+        <details class="table-view">
+          <summary>Show as table</summary>
+          <table>
+            <thead>
+              <tr><th scope="col">Day</th><th scope="col">Keys</th><th scope="col">Active</th><th scope="col">Focus</th></tr>
+            </thead>
+            <tbody id="chart-table"></tbody>
+          </table>
+        </details>
+      </div>
+      <div class="card">
+        <h2 id="achievements-title">Achievements</h2>
+        <div id="achievements" class="achievements"></div>
+      </div>
+      <p class="muted privacy">Only counts are kept, never what you type.</p>
+    </section>
+
+    <section id="tab-settings" class="tab" role="tabpanel" aria-labelledby="tab-btn-settings" hidden>
+      <div id="form"></div>
+      <div class="card">
+        <h2>Hotkeys</h2>
+        <div class="row info"><span class="label">Call pets to the cursor</span><kbd id="hotkey-summon"></kbd></div>
+        <div class="row info"><span class="label">Hide / show pets</span><kbd id="hotkey-hide"></kbd></div>
+        <p class="muted small">Change them under <code>hotkeys</code> in config.json.</p>
+      </div>
+      <footer>
+        <span class="muted">Changes apply right away.</span>
+        <button type="button" id="reset" class="secondary">Reset to defaults</button>
+      </footer>
+    </section>
+
+    <div id="tooltip" class="tooltip" role="status" hidden></div>
+    <script type="module" src="settings.js"></script>
+  </body>
+</html>
