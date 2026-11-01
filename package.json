@@ -1,7 +1,7 @@
 {
   "name": "desktop-pet",
   "productName": "Desktop Pet",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A small pet that lives on top of your taskbar and reacts to your typing.",
   "author": {
     "name": "Adhi1908",
@@ -46,7 +46,6 @@
       "config.json",
       "renderer/**/*",
       "assets/**/*",
-      "!node_modules/koffi/build/koffi/!(win32_x64)/**",
       "!node_modules/koffi/{doc,src,vendor}/**"
     ],
     "asarUnpack": [
@@ -63,7 +62,36 @@
           ]
         }
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "files": [
+        "!node_modules/koffi/build/koffi/!(win32_x64)/**",
+        "!node_modules/uiohook-napi/prebuilds/!(win32-x64)/**"
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.entertainment",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "LSUIElement": true
+      },
+      "files": [
+        "!node_modules/koffi/build/koffi/!(darwin_arm64|darwin_x64)/**",
+        "!node_modules/uiohook-napi/prebuilds/!(darwin-arm64|darwin-x64)/**"
+      ]
+    },
+    "dmg": {
+      "artifactName": "Desktop-Pet-${version}-mac-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": true,

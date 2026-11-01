@@ -3,8 +3,9 @@
 
 // Generates placeholder art so the app runs before real art exists:
 //   <sprite.path in config.json>         sprite sheet laid out from config.json (one row per animation)
-//   assets/tray.png, assets/tray@2x.png  tray icon
-//   build/icon.png                       256x256 app icon for electron-builder
+//   assets/tray.png, assets/tray@2x.png  tray icon (Windows)
+//   assets/trayTemplate.png, @2x         menu bar icon (macOS)
+//   build/icon.png                       512x512 app icon for electron-builder
 // Existing files are kept unless --force is passed, so real art is never overwritten.
 //
 // Usage: node scripts/generate-placeholder-sprites.js [--force] [--quiet]
@@ -311,14 +312,32 @@ function buildIcon() {
   return icon;
 }
 
+// The macOS menu bar icon: the same face as a black silhouette with see-through eyes. macOS tints
+// it to suit light and dark menu bars (the "Template" in the file name tells it to).
+function buildTrayTemplate() {
+  const icon = createBitmap(16, 16);
+  const p = new Painter(icon, 0, 0, 16, 16, 16);
+  const black = [0, 0, 0, 255];
+  const clear = [0, 0, 0, 0];
+  p.rect(2, 2, 4, 3, black); // ears
+  p.rect(10, 2, 4, 3, black);
+  p.rect(1, 4, 14, 10, black); // head
+  p.rect(4, 7, 2, 3, clear); // eyes
+  p.rect(10, 7, 2, 3, clear);
+  return icon;
+}
+
 // ---- write files ------------------------------------------------------------------
 
 const icon = buildIcon();
+const template = buildTrayTemplate();
 const outputs = [
   [config.sprite.path, () => buildSheet(config.sprite)],
   ['assets/tray.png', () => icon],
   ['assets/tray@2x.png', () => upscale(icon, 2)],
-  ['build/icon.png', () => upscale(icon, 16)],
+  ['assets/trayTemplate.png', () => template],
+  ['assets/trayTemplate@2x.png', () => upscale(template, 2)],
+  ['build/icon.png', () => upscale(icon, 32)], // macOS needs at least 512x512
 ];
 
 for (const [relPath, build] of outputs) {

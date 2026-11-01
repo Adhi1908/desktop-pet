@@ -656,8 +656,14 @@ function showValues(next) {
   updateDependents();
 }
 
-const formatHotkey = (accelerator) =>
-  (accelerator || 'none').replace(/CommandOrControl|CmdOrCtrl/g, 'Ctrl').split('+').join(' + ');
+// "Ctrl+Alt+P" as Windows writes it ("Ctrl + Alt + P") or as a Mac does ("⌃⌥P").
+const MAC_KEYS = { Ctrl: '⌃', Control: '⌃', Alt: '⌥', Option: '⌥', Shift: '⇧', Cmd: '⌘', Command: '⌘', Super: '⌘', Meta: '⌘' };
+const formatHotkey = (accelerator) => {
+  if (!accelerator) return 'none';
+  const mac = initial.platform === 'darwin';
+  const keys = accelerator.replace(/CommandOrControl|CmdOrCtrl/g, mac ? 'Cmd' : 'Ctrl').split('+');
+  return mac ? keys.map((k) => MAC_KEYS[k] ?? k).join('') : keys.join(' + ');
+};
 $('hotkey-summon').textContent = formatHotkey(initial.hotkeys.summon);
 $('hotkey-hide').textContent = formatHotkey(initial.hotkeys.toggleHide);
 

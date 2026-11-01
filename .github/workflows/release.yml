@@ -1,17 +1,19 @@
-# Builds the Windows installer on GitHub's own machines from the tagged source, so anyone can check
-# where a download came from. Pushing a tag like v1.0.2 publishes a release with the installer, its
-# SHA-256 checksum and a signed build-provenance record.
+# Builds Desktop Pet for Windows and macOS on GitHub's own machines from the tagged source, so
+# anyone can check where a download came from. Pushing a tag like v1.2.0 publishes a release with
+# the Windows installer, the Mac disk images, their SHA-256 checksums and a signed build-provenance
+# record. Each platform first runs the smoke test (scripts/smoke-test.js) against the source.
 #
-# Code signing through SignPath (free for open source) switches on once the repository has the
-# SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret: the app's .exe is signed before it
-# goes into the installer, then the installer itself. Until then releases are built unsigned.
+# Windows code signing through SignPath (free for open source) switches on once the repository has
+# the SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret: the app's .exe is signed
+# before it goes into the installer, then the installer itself. Until then Windows builds are
+# unsigned. Mac builds are ad-hoc signed (not notarized: that needs a paid Apple developer account).
 
 name: Release
 
 on:
   push:
     tags: ['v*']
-  workflow_dispatch: # a test build from any branch, kept as a workflow artifact
+  workflow_dispatch: # a test build from any branch, kept as workflow artifacts
 
 permissions:
   contents: write # create the release
@@ -20,7 +22,7 @@ permissions:
   attestations: write
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     env:
       SIGN: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
@@ -33,6 +35,12 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $env:NODE_OPTIONS = '--require ./scripts/smoke-test.js'
+          npx electron . --user-data-dir="$env:RUNNER_TEMP/pet-profile"
 
       - name: Build the app
         run: npx electron-builder --win --dir --publish never
@@ -82,21 +90,82 @@ jobs:
           wait-for-completion-timeout-in-seconds: 3600
           output-artifact-directory: dist/signed
 
-      - name: Collect the release files
-        shell: pwsh
+      - name: Keep the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: ${{ env.SIGN == 'true' && 'dist/signed' || 'dist' }}/Desktop-Pet-Setup-*.exe
+          if-no-files-found: error
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Smoke test
+        run: NODE_OPTIONS="--require ./scripts/smoke-test.js" npx electron . --user-data-dir="$RUNNER_TEMP/pet-profile"
+
+      - name: Keep the smoke test screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-smoke-test
+          path: smoke-test.png
+          if-no-files-found: ignore
+
+      - name: Build the app (Apple silicon and Intel)
+        run: npx electron-builder --mac --publish never
+
+      - name: Check the packaged app starts
         run: |
-          $from = if ($env:SIGN -eq 'true') { 'dist/signed' } else { 'dist' }
-          New-Item -ItemType Directory release | Out-Null
-          Copy-Item "$from/Desktop-Pet-Setup-*.exe" release/
-          Get-ChildItem release/*.exe | ForEach-Object {
-            "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
-          } | Set-Content -Encoding ascii release/SHA256SUMS.txt
-          Get-Content release/SHA256SUMS.txt
+          app="dist/mac-arm64/Desktop Pet.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          "$app/Contents/MacOS/Desktop Pet" --user-data-dir="$RUNNER_TEMP/pet-packaged" &
+          pid=$!
+          sleep 15
+          kill -0 "$pid" # still running
+          kill "$pid"
+
+      - name: Keep the disk images
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/Desktop-Pet-*.dmg
+          if-no-files-found: error
+
+  release:
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: release
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac
+          path: release
+
+      - name: Checksums
+        working-directory: release
+        run: |
+          sha256sum *.exe *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Record build provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: release/Desktop-Pet-Setup-*.exe
+          subject-path: |
+            release/*.exe
+            release/*.dmg
 
       - name: Keep the files (test builds)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
@@ -107,14 +176,13 @@ jobs:
 
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release view $env:TAG *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:TAG release/* --clobber
-          } else {
-            gh release create $env:TAG release/* --verify-tag --title "Desktop Pet $($env:TAG.TrimStart('v'))" --generate-notes
-          }
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" release/* --verify-tag --title "Desktop Pet ${TAG#v}" --generate-notes
+          fi

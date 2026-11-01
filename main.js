@@ -13,6 +13,7 @@ const {
   dialog,
   globalShortcut,
   powerMonitor,
+  systemPreferences,
 } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -25,10 +26,14 @@ const { UserReminders } = require('./lib/user-reminders');
 const { HATS, TINTS, SEASON_LABELS, currentSeason, effectiveHat } = require('./lib/catalog');
 const { Reminders, Pomodoro } = require('./lib/reminders');
 const { startKeyboardWatch } = require('./lib/keyboard');
-const { createWindowScanner, toLedges, toSides } = require('./lib/windows');
+const { createWindowScanner, windowIdOf, toLedges, toSides } = require('./lib/windows');
 const { createFullscreenCheck, inWindow } = require('./lib/system');
 
+const isMac = process.platform === 'darwin';
 const APP_ROOT = app.getAppPath();
+// The pet windows float above other windows. On macOS "floating" keeps them under menus, Spotlight
+// and notifications; Windows needs the highest level to stay above the taskbar's pop-ups.
+const OVERLAY_LEVEL = isMac ? 'floating' : 'screen-saver';
 const SOUND_EXTENSIONS = ['.wav', '.mp3', '.ogg'];
 const MOOD_LABELS = { happy: 'happy', okay: 'okay', sad: 'sad', hungry: 'hungry' };
 const PHASE_LABELS = { focus: 'focus', short: 'short break', long: 'long break' };
@@ -178,20 +183,25 @@ function refreshAmbient() {
 // Monitors: one overlay each, and pets moving between them
 // ---------------------------------------------------------------------------
 
-const hwndOf = (overlay) => Number(overlay.getNativeWindowHandle().readBigUInt64LE(0));
 const findDisplay = (id) => screen.getAllDisplays().find((d) => d.id === id);
 
+// Windows gives each monitor its own scaling, so positions on different monitors are compared in
+// physical pixels there. On macOS a point is the same everywhere, so DIP coordinates already match.
+const toScreenRect = (rect) => (isMac ? rect : screen.dipToScreenRect(null, rect));
+const toScreenPoint = (point) => (isMac ? point : screen.dipToScreenPoint(point));
+const scaleOf = (display) => (isMac ? 1 : display.scaleFactor);
+
 // The monitor next to this one on the left or right (edges touching, overlapping vertically by a
-// fair stretch), if it has an overlay. Compared in physical pixels, since scaling can differ.
+// fair stretch), if it has an overlay.
 function neighbour(displayId, side) {
   const me = findDisplay(displayId);
   if (!me) return null;
-  const a = screen.dipToScreenRect(null, me.bounds);
+  const a = toScreenRect(me.bounds);
   for (const id of overlays.keys()) {
     if (id === displayId) continue;
     const other = findDisplay(id);
     if (!other) continue;
-    const b = screen.dipToScreenRect(null, other.bounds);
+    const b = toScreenRect(other.bounds);
     const touching = side === 'left' ? Math.abs(b.x + b.width - a.x) <= 2 : Math.abs(a.x + a.width - b.x) <= 2;
     const overlap = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
     if (touching && overlap > 100) return other;
@@ -207,15 +217,15 @@ function displayInfo(displayId) {
   };
 }
 
-// A point in a display's work area (DIP) <-> physical screen pixels.
+// A point in a display's work area (DIP) <-> screen pixels (physical on Windows, points on macOS).
 function toPhysical(display, x, y) {
-  const origin = screen.dipToScreenPoint({ x: display.workArea.x, y: display.workArea.y });
-  return { x: origin.x + x * display.scaleFactor, y: origin.y + y * display.scaleFactor };
+  const origin = toScreenPoint({ x: display.workArea.x, y: display.workArea.y });
+  return { x: origin.x + x * scaleOf(display), y: origin.y + y * scaleOf(display) };
 }
 
 function toLocal(display, point) {
-  const origin = screen.dipToScreenPoint({ x: display.workArea.x, y: display.workArea.y });
-  return { x: (point.x - origin.x) / display.scaleFactor, y: (point.y - origin.y) / display.scaleFactor };
+  const origin = toScreenPoint({ x: display.workArea.x, y: display.workArea.y });
+  return { x: (point.x - origin.x) / scaleOf(display), y: (point.y - origin.y) / scaleOf(display) };
 }
 
 // Where a pet leaving `fromId` turns up: through a side edge (walking or flying), or dropped at a
@@ -226,7 +236,7 @@ function arrivalFor(fromId, move) {
   if (move.side) {
     const target = neighbour(fromId, move.side);
     if (!target) return null;
-    const ratio = from.scaleFactor / target.scaleFactor;
+    const ratio = scaleOf(from) / scaleOf(target);
     const feetY = move.grounded ? null : toLocal(target, toPhysical(from, 0, move.feetY)).y;
     return {
       displayId: target.id,
@@ -238,7 +248,7 @@ function arrivalFor(fromId, move) {
     .map(findDisplay)
     .find((d) => {
       if (!d) return false;
-      const b = screen.dipToScreenRect(null, d.workArea);
+      const b = toScreenRect(d.workArea);
       return point.x >= b.x && point.x < b.x + b.width && point.y >= b.y && point.y < b.y + b.height;
     });
   if (!target || target.id === fromId) return null;
@@ -256,8 +266,9 @@ function createOverlay(display) {
     hasShadow: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    type: 'toolbar', // tool window: keeps it out of Alt+Tab on Windows
+    ...(isMac ? {} : { type: 'toolbar' }), // tool window: keeps it out of Alt+Tab on Windows
     focusable: false, // clicking a pet never steals focus from whatever you're typing in
+    acceptFirstMouse: true, // macOS: the first click reaches the pet instead of just activating the app
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -269,8 +280,13 @@ function createOverlay(display) {
     },
   });
   overlay.setBounds(display.workArea); // creation can mis-size a window on a monitor with other scaling
-  overlay.setAlwaysOnTop(true, 'screen-saver');
+  overlay.setAlwaysOnTop(true, OVERLAY_LEVEL);
   overlay.setIgnoreMouseEvents(true, { forward: true });
+  if (isMac) {
+    // On every desktop (Space) but not on full-screen apps' Spaces, and not in Mission Control.
+    overlay.setVisibleOnAllWorkspaces(true, { skipTransformProcessType: true });
+    overlay.setHiddenInMissionControl?.(true);
+  }
   overlay.once('ready-to-show', () => {
     if (!hidden && !autoHidden) overlay.showInactive();
   });
@@ -590,7 +606,7 @@ function startPlatformWatch() {
   const last = new Map();
   setInterval(() => {
     if (isPaused()) return; // keep the last layout so paused pets don't drop
-    const excluded = new Set([...overlays.values()].filter((o) => !o.isDestroyed()).map(hwndOf));
+    const excluded = new Set([...overlays.values()].filter((o) => !o.isDestroyed()).map(windowIdOf));
     const windows = settings.config.climbing.windows ? scan(excluded) : [];
     for (const id of overlays.keys()) {
       const display = findDisplay(id);
@@ -656,11 +672,17 @@ function startSmartWatch() {
 // Windows
 // ---------------------------------------------------------------------------
 
+// A menu bar app on macOS isn't the active app, so its window has to ask to come to the front.
+function bringToFront(win) {
+  win.show();
+  if (isMac) app.focus({ steal: true });
+  win.focus();
+}
+
 function openSettings(tab = 'pets') {
   if (settingsWin) {
     sendSettings('settings:show-tab', tab);
-    settingsWin.show();
-    settingsWin.focus();
+    bringToFront(settingsWin);
     return;
   }
   settingsWin = new BrowserWindow({
@@ -680,7 +702,7 @@ function openSettings(tab = 'pets') {
       sandbox: true,
     },
   });
-  settingsWin.once('ready-to-show', () => settingsWin.show());
+  settingsWin.once('ready-to-show', () => bringToFront(settingsWin));
   settingsWin.on('closed', () => {
     settingsWin = null;
   });
@@ -694,7 +716,7 @@ function applyVisibility(wasPaused) {
     if (overlay.isDestroyed()) continue;
     if (visible && !overlay.isVisible()) {
       overlay.showInactive();
-      overlay.setAlwaysOnTop(true, 'screen-saver');
+      overlay.setAlwaysOnTop(true, OVERLAY_LEVEL);
     } else if (!visible && overlay.isVisible()) {
       overlay.hide();
     }
@@ -861,6 +883,7 @@ function registerIpc() {
       seasonLabel: SEASON_LABELS[season()] ?? null,
       seasonalHat: effectiveHat('seasonal', 1, season()),
       maxPets: MAX_PETS,
+      platform: process.platform,
       hotkeys: settings.config.hotkeys,
       sprite: settings.config.sprite,
     };
@@ -930,7 +953,44 @@ function registerIpc() {
 // Unpackaged (`npm start`) the executable is electron.exe, so the app folder has to be passed
 // as an argument. Electron doesn't quote login-item args on Windows, hence the explicit quotes.
 function loginItemOptions() {
-  return app.isPackaged ? {} : { path: process.execPath, args: [`"${APP_ROOT}"`] };
+  return app.isPackaged || isMac ? {} : { path: process.execPath, args: [`"${APP_ROOT}"`] };
+}
+
+// ---------------------------------------------------------------------------
+// Typing reactions
+// ---------------------------------------------------------------------------
+
+let typingOn = false;
+
+// macOS only shows an app your key presses once you've allowed it under Privacy & Security →
+// Accessibility. The pets never ask at startup; the tray menu offers it.
+const typingAllowed = () => !isMac || systemPreferences.isTrustedAccessibilityClient(false);
+
+function startTyping() {
+  if (typingOn || !typingAllowed()) return;
+  typingOn = true;
+  stopKeyboard = startKeyboardWatch({
+    isPaused,
+    onActivity: () => broadcast('pet:key-activity'),
+    onRate: (perTenSec) => broadcast('pet:typing-rate', perTenSec),
+    onKeys,
+  });
+  buildTrayMenu();
+}
+
+// Shows macOS's permission prompt (which leads to System Settings), then starts as soon as it's
+// allowed.
+function askToWatchTyping() {
+  systemPreferences.isTrustedAccessibilityClient(true);
+  const askedAt = Date.now();
+  const timer = setInterval(() => {
+    if (typingAllowed()) {
+      clearInterval(timer);
+      startTyping();
+    } else if (Date.now() - askedAt > 5 * 60_000) {
+      clearInterval(timer);
+    }
+  }, 2000);
 }
 
 function getLaunchAtLogin() {
@@ -1024,10 +1084,11 @@ function fallbackTrayIcon() {
 }
 
 function createTray() {
-  let icon = nativeImage.createFromPath(path.join(APP_ROOT, 'assets', 'tray.png'));
+  // macOS: a black "template" icon that the menu bar tints for light and dark mode.
+  let icon = nativeImage.createFromPath(path.join(APP_ROOT, 'assets', isMac ? 'trayTemplate.png' : 'tray.png'));
   if (icon.isEmpty()) icon = fallbackTrayIcon();
   tray = new Tray(icon);
-  tray.on('click', () => tray.popUpContextMenu());
+  if (!isMac) tray.on('click', () => tray.popUpContextMenu()); // macOS opens the menu on click by itself
   buildTrayMenu();
 }
 
@@ -1093,6 +1154,7 @@ function buildTrayMenu() {
       { label: `Shop and quests (${economy.treats} 🍪)…`, click: () => openSettings('home') },
       { label: 'Reminders…', click: () => openSettings('reminders') },
       { label: 'Settings and stats…', click: () => openSettings('pets') },
+      ...(isMac && !typingOn ? [{ label: 'Let pets react to your typing…', click: askToWatchTyping }] : []),
       {
         label: 'Sounds',
         type: 'checkbox',
@@ -1123,13 +1185,15 @@ if (!app.requestSingleInstanceLock()) {
   console.log('Desktop Pet is already running (see the tray icon). Quit that copy first.');
   app.quit();
 } else {
-  Menu.setApplicationMenu(null);
+  // macOS keeps a (hidden) app menu so Cmd+C / Cmd+V work in the settings window.
+  Menu.setApplicationMenu(isMac ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]) : null);
   // Windows only shows notifications from an app whose ID matches a Start menu shortcut; the
   // installer creates that shortcut with the build's appId (so `npm start` notifications also work
   // once the app has been installed).
-  app.setAppUserModelId('com.desktoppet.app');
+  if (!isMac) app.setAppUserModelId('com.desktoppet.app');
 
   app.whenReady().then(() => {
+    app.dock?.hide(); // a menu bar app on macOS (the packaged app also says so in its Info.plist)
     try {
       settings = new Settings(
         path.join(APP_ROOT, 'config.json'),
@@ -1150,12 +1214,7 @@ if (!app.requestSingleInstanceLock()) {
     startPlatformWatch();
     startSmartWatch();
     startCursorWatch();
-    stopKeyboard = startKeyboardWatch({
-      isPaused,
-      onActivity: () => broadcast('pet:key-activity'),
-      onRate: (perTenSec) => broadcast('pet:typing-rate', perTenSec),
-      onKeys,
-    });
+    startTyping();
     let displayTimer = null;
     for (const event of ['display-metrics-changed', 'display-added', 'display-removed']) {
       screen.on(event, () => {

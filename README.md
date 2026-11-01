@@ -1,31 +1,56 @@
 # Desktop Pet
 
-Little pets that live on your Windows desktop, on every monitor. They walk along the taskbar and
-the tops of your windows, climb window sides and screen edges and play with each other and their
-toys. They also react to your typing, nap in their bed, level up, and bring you reminders on
-little signs. Electron + plain JS, no framework.
+Little pets that live on your Windows or Mac desktop, on every monitor. They walk along the
+taskbar or Dock and the tops of your windows, climb window sides and screen edges and play with
+each other and their toys. They also react to your typing, nap in their bed, level up, and bring
+you reminders on little signs. Electron + plain JS, no framework.
 
 ## Download
 
-Get `Desktop-Pet-Setup-<version>.exe` from the
-[latest release](https://github.com/Adhi1908/desktop-pet/releases/latest) and run it. It installs
-for your user only (no admin rights) and starts right away. Windows 10 or 11, 64-bit.
+Everything is on the [latest release](https://github.com/Adhi1908/desktop-pet/releases/latest).
 
-- **Check your download:** each release lists the installer's SHA-256 checksum in
-  `SHA256SUMS.txt`. Compare it with `Get-FileHash .\Desktop-Pet-Setup-<version>.exe` in PowerShell.
-- **Check where it was built:** releases are built by GitHub Actions from the tagged source, with
-  a signed build-provenance record. With the GitHub CLI:
-  `gh attestation verify Desktop-Pet-Setup-<version>.exe --repo Adhi1908/desktop-pet`.
-- **Uninstall:** Windows Settings → Apps → Installed apps → Desktop Pet → Uninstall. Your pets are
-  kept in `%APPDATA%\Desktop Pet\`; delete that folder too to remove everything.
+**Windows 10 or 11 (64-bit):** download `Desktop-Pet-Setup-<version>.exe` and run it. It installs
+for your user only (no admin rights) and starts right away.
+
+**macOS 12 or later:**
+1. **Download** `Desktop-Pet-<version>-mac-arm64.dmg` for Apple silicon (M1 or newer), or
+   `Desktop-Pet-<version>-mac-x64.dmg` for an Intel Mac (Apple menu → About This Mac shows which).
+2. **Install:** open the .dmg and drag Desktop Pet into Applications.
+3. **First launch:** the Mac app isn't notarized by Apple yet (that needs a paid Apple developer
+   account), so macOS stops it the first time. Open it once, click **Done**, then go to System
+   Settings → Privacy & Security, scroll down and click **Open Anyway** next to Desktop Pet. After
+   that it opens normally.
+4. **Use it:** the pets appear above the Dock, and the little face icon in the menu bar has the
+   menu.
+5. **Typing reactions** need your permission on a Mac: menu bar → **Let pets react to your
+   typing…**, then turn on Desktop Pet under Privacy & Security → Accessibility. The app only
+   counts key presses, never which keys. After an update macOS may ask again.
+
+**Check your download:**
+- **Checksum:** each release lists SHA-256 checksums in `SHA256SUMS.txt`. Compare with
+  `Get-FileHash <file>` (PowerShell) or `shasum -a 256 <file>` (Mac).
+- **Where it was built:** releases are built by GitHub Actions from the tagged source, with a
+  signed build-provenance record. With the GitHub CLI:
+  `gh attestation verify <file> --repo Adhi1908/desktop-pet`.
+
+**Uninstall:**
+- **Windows:** Settings → Apps → Installed apps → Desktop Pet → Uninstall. Your pets are kept in
+  `%APPDATA%\Desktop Pet\`; delete that folder too to remove everything.
+- **Mac:** quit it from the menu bar and drag it from Applications to the Bin. Your pets are kept
+  in `~/Library/Application Support/Desktop Pet/`.
 
 ## Build it yourself
 
 ```
 npm install
 npm start          # generates placeholder art on first run, then launches
-npm run build      # -> dist\Desktop-Pet-Setup-<version>.exe
+npm run build      # on Windows -> dist\Desktop-Pet-Setup-<version>.exe
+npx electron-builder --mac   # on a Mac -> dist/Desktop-Pet-<version>-mac-<arch>.dmg
 ```
+
+`scripts/smoke-test.js` starts the app and checks that the pets appear and windows can be climbed
+(see the top of the file for how to run it). GitHub Actions runs it on Windows and macOS before
+every release.
 
 ## What they do
 
@@ -39,9 +64,9 @@ npm run build      # -> dist\Desktop-Pet-Setup-<version>.exe
 | Click / double-click / drag a pet | Heart + hop / a trick / pick it up and throw it. Drop it on a window's title bar and it stands there |
 | Right-click a pet | Feed, Pet, Play ball, Toys, Add a friend, Say goodbye, Sleep, Settings |
 | Tray → **Toys** | **Laser pointer** (a red dot at your cursor that they chase and pounce on), **ball of yarn** (grab it and throw it, and they bat it around), **Drop a treat** at the cursor (they race for it), Put the toys away |
-| Lock the PC / come back | They curl up / greet you ("I missed you!") |
-| Ctrl+Alt+P / Ctrl+Alt+H | Call every pet to the cursor / hide or show them |
-| Can't find a pet | Tray → **Bring \<name\> back** (or Settings → Pets → **Bring back** for one pet): it pops up on the main monitor's taskbar next to the tray, even if the pets were hidden, paused or out of the way for a full-screen app. With more than one monitor, each pet's card says which monitor it's on. A pet that ends up out of sight by itself drops back onto the screen within a few seconds, and pets on a monitor that's unplugged move to the main one |
+| Lock the computer / come back | They curl up / greet you ("I missed you!") |
+| Ctrl+Alt+P / Ctrl+Alt+H (⌃⌥P / ⌃⌥H on a Mac) | Call every pet to the cursor / hide or show them |
+| Can't find a pet | Tray (menu bar on a Mac) → **Bring \<name\> back** (or Settings → Pets → **Bring back** for one pet): it pops up at the bottom right of the main monitor, above the taskbar or Dock, even if the pets were hidden, paused or out of the way for a full-screen app. With more than one monitor, each pet's card says which monitor it's on. A pet that ends up out of sight by itself drops back onto the screen within a few seconds, and pets on a monitor that's unplugged move to the main one |
 
 **Treats, quests and furniture.**
 - **Earning:** you start with 10 treats 🍪 and get 2 more each new day. Every day brings 3 quests,
@@ -55,12 +80,13 @@ npm run build      # -> dist\Desktop-Pet-Setup-<version>.exe
 
 **Your own reminders.** Settings → Reminders: once, every day, weekdays, weekends, or chosen days,
 at a set time. A pet holds up a sign with your text and a chime. Click **Done** or **Snooze 10
-min**. If the pets are hidden, paused or out of the way for a full-screen app, Windows shows a
+min**. If the pets are hidden, paused or out of the way for a full-screen app, you get a system
 notification instead. A reminder is still delivered if the app starts up to 2 hours late, and
 reminders get through do-not-disturb.
 
 **Smart reactions.**
-- **Full screen:** pets hide during full-screen apps, games and presentations, then come back.
+- **Full screen:** pets hide during full-screen apps, games and presentations, then come back. On
+  a Mac they stay on your desktops and never appear on a full-screen app's Space.
 - **Night** (23:00–06:00 by default): nightcaps, slower and sleepier pets, and naps after half
   the usual idle time.
 - **Low battery** (≤ 20%, unplugged): they get tired and say so. Plugging in perks them up.
@@ -73,7 +99,8 @@ reminders get through do-not-disturb.
   achievements.
 - **Other:** the seasonal decorations, a Pomodoro timer in the tray, and break and water nudges.
 
-**Saved data** lives in `%APPDATA%\Desktop Pet\`:
+**Saved data** lives in `%APPDATA%\Desktop Pet\` (Windows) or
+`~/Library/Application Support/Desktop Pet/` (Mac):
 - `pets.json`: the pets.
 - `stats.json`: stats and achievements.
 - `home.json`: treats, quests and furniture.
@@ -81,12 +108,14 @@ reminders get through do-not-disturb.
 - `settings.json`: your changes from the settings window, which override `config.json`.
 
 **Privacy.**
-- **Keyboard:** monitoring (`uiohook-napi`) only counts keydowns, never which key.
-- **Windows:** window scanning (`koffi`) reads only window positions, never titles or contents.
-  The full-screen check asks Windows whether a full-screen app or presentation is running.
+- **Keyboard:** monitoring (`uiohook-napi`) only counts keydowns, never which key. On a Mac it
+  only runs after you allow it (Privacy & Security → Accessibility).
+- **Windows:** window scanning (`koffi`) reads only window positions, never titles or contents, so
+  a Mac never asks for Screen Recording permission. On Windows the full-screen check asks Windows
+  whether a full-screen app or presentation is running.
 - **Paused or hidden:** nothing is counted.
 - **Network:** none. The app never connects to the internet.
-- **Start with Windows:** only if you turn on "Launch at login" in the tray menu.
+- **Start at login:** only if you turn on "Launch at login" in the tray menu.
 
 ## config.json
 
@@ -139,8 +168,8 @@ These are the defaults. The settings window stores its changes separately.
 
 Windows releases are signed through SignPath's program for open-source projects. Free code
 signing provided by [SignPath.io](https://about.signpath.io), certificate by
-[SignPath Foundation](https://signpath.org). Releases up to 1.0.1 were published before signing
-was set up and are unsigned.
+[SignPath Foundation](https://signpath.org). Windows releases published before signing was set up
+are unsigned. Mac builds are ad-hoc signed but not notarized by Apple (see Download).
 
 - **Committers and reviewers:** [Adhi1908](https://github.com/Adhi1908)
 - **Approvers:** [Adhi1908](https://github.com/Adhi1908)
