@@ -1,8 +1,19 @@
 {
   "name": "desktop-pet",
   "productName": "Desktop Pet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A small pet that lives on top of your taskbar and reacts to your typing.",
+  "author": {
+    "name": "Adhi1908",
+    "url": "https://github.com/Adhi1908"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Adhi1908/desktop-pet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Adhi1908/desktop-pet.git"
+  },
+  "bugs": "https://github.com/Adhi1908/desktop-pet/issues",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -23,6 +34,7 @@
   "build": {
     "appId": "com.desktoppet.app",
     "productName": "Desktop Pet",
+    "copyright": "Copyright © 2026 Adhi1908",
     "directories": {
       "output": "dist"
     },
@@ -55,7 +67,9 @@
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false
+      "perMachine": false,
+      "packElevateHelper": false,
+      "artifactName": "Desktop-Pet-Setup-${version}.${ext}"
     }
   }
 }

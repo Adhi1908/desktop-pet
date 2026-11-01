@@ -1,0 +1,120 @@
+# Builds the Windows installer on GitHub's own machines from the tagged source, so anyone can check
+# where a download came from. Pushing a tag like v1.0.2 publishes a release with the installer, its
+# SHA-256 checksum and a signed build-provenance record.
+#
+# Code signing through SignPath (free for open source) switches on once the repository has the
+# SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret: the app's .exe is signed before it
+# goes into the installer, then the installer itself. Until then releases are built unsigned.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: # a test build from any branch, kept as a workflow artifact
+
+permissions:
+  contents: write # create the release
+  actions: read # SignPath fetches the files to sign
+  id-token: write # build provenance
+  attestations: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      SIGN: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the app
+        run: npx electron-builder --win --dir --publish never
+
+      - name: Upload the app for signing
+        if: env.SIGN == 'true'
+        id: app-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-unsigned
+          path: dist/win-unpacked/Desktop Pet.exe
+
+      - name: Sign the app
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: desktop-pet
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: app
+          github-artifact-id: ${{ steps.app-unsigned.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600 # every release waits for your approval in SignPath
+          output-artifact-directory: dist/win-unpacked
+
+      - name: Build the installer
+        run: npx electron-builder --win --prepackaged dist/win-unpacked --publish never
+
+      - name: Upload the installer for signing
+        if: env.SIGN == 'true'
+        id: installer-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-unsigned
+          path: dist/Desktop-Pet-Setup-*.exe
+
+      - name: Sign the installer
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: desktop-pet
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.installer-unsigned.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/signed
+
+      - name: Collect the release files
+        shell: pwsh
+        run: |
+          $from = if ($env:SIGN -eq 'true') { 'dist/signed' } else { 'dist' }
+          New-Item -ItemType Directory release | Out-Null
+          Copy-Item "$from/Desktop-Pet-Setup-*.exe" release/
+          Get-ChildItem release/*.exe | ForEach-Object {
+            "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding ascii release/SHA256SUMS.txt
+          Get-Content release/SHA256SUMS.txt
+
+      - name: Record build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/Desktop-Pet-Setup-*.exe
+
+      - name: Keep the files (test builds)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: release/
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG release/* --clobber
+          } else {
+            gh release create $env:TAG release/* --verify-tag --title "Desktop Pet $($env:TAG.TrimStart('v'))" --generate-notes
+          }

@@ -2,14 +2,29 @@
 
 Little pets that live on your Windows desktop, on every monitor. They walk along the taskbar and
 the tops of your windows, climb window sides and screen edges and play with each other and their
-toys. They also react to your
-typing, nap in their bed, level up, and bring you reminders on little signs. Electron + plain JS,
-no framework.
+toys. They also react to your typing, nap in their bed, level up, and bring you reminders on
+little signs. Electron + plain JS, no framework.
+
+## Download
+
+Get `Desktop-Pet-Setup-<version>.exe` from the
+[latest release](https://github.com/Adhi1908/desktop-pet/releases/latest) and run it. It installs
+for your user only (no admin rights) and starts right away. Windows 10 or 11, 64-bit.
+
+- **Check your download:** each release lists the installer's SHA-256 checksum in
+  `SHA256SUMS.txt`. Compare it with `Get-FileHash .\Desktop-Pet-Setup-<version>.exe` in PowerShell.
+- **Check where it was built:** releases are built by GitHub Actions from the tagged source, with
+  a signed build-provenance record. With the GitHub CLI:
+  `gh attestation verify Desktop-Pet-Setup-<version>.exe --repo Adhi1908/desktop-pet`.
+- **Uninstall:** Windows Settings → Apps → Installed apps → Desktop Pet → Uninstall. Your pets are
+  kept in `%APPDATA%\Desktop Pet\`; delete that folder too to remove everything.
+
+## Build it yourself
 
 ```
 npm install
 npm start          # generates placeholder art on first run, then launches
-npm run build      # -> dist\Desktop Pet Setup 1.0.0.exe
+npm run build      # -> dist\Desktop-Pet-Setup-<version>.exe
 ```
 
 ## What they do
@@ -67,9 +82,11 @@ reminders get through do-not-disturb.
 
 **Privacy.**
 - **Keyboard:** monitoring (`uiohook-napi`) only counts keydowns, never which key.
-- **Windows:** window scanning (`koffi`) reads only window positions. The full-screen check asks
-  Windows whether a full-screen app or presentation is running.
+- **Windows:** window scanning (`koffi`) reads only window positions, never titles or contents.
+  The full-screen check asks Windows whether a full-screen app or presentation is running.
 - **Paused or hidden:** nothing is counted.
+- **Network:** none. The app never connects to the internet.
+- **Start with Windows:** only if you turn on "Launch at login" in the tray menu.
 
 ## config.json
 
@@ -117,3 +134,21 @@ These are the defaults. The settings window stores its changes separately.
    `npm run build`.
 
 `npm run sprites -- --force` regenerates the placeholder art **and overwrites `assets/pet.png`**.
+
+## Code signing policy
+
+Windows releases are signed through SignPath's program for open-source projects. Free code
+signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org). Releases up to 1.0.1 were published before signing
+was set up and are unsigned.
+
+- **Committers and reviewers:** [Adhi1908](https://github.com/Adhi1908)
+- **Approvers:** [Adhi1908](https://github.com/Adhi1908)
+- **How a release is made:** every installer is built by GitHub Actions from the tagged source
+  (`.github/workflows/release.yml`), and each signing request is approved by hand in SignPath.
+- **Privacy:** this program will not transfer any information to other networked systems unless
+  specifically requested by the user or the person installing or operating it.
+
+## License
+
+[MIT](LICENSE) © 2026 Adhi1908
